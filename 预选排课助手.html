@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能排课系统 - 自助选课方案生成器</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+/* ========== CSS Variables — Green Glassmorphism Theme ========== */
+:root {
+  --primary: #10b981;
+  --primary-light: #d1fae5;
+  --primary-dark: #059669;
+  --primary-glow: rgba(16,185,129,0.18);
+  --primary-gradient: linear-gradient(135deg, #34d399 0%, #10b981 50%, #059669 100%);
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --danger-bg: #fef2f2;
+  --bg: #f3f4f6;
+  --panel-bg: #ffffff;
+  --panel-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --panel-shadow-hover: 0 4px 12px rgba(0,0,0,0.08);
+  --line-soft: #e5e7eb;
+  --text: #111827;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --header-h: 56px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection { background: var(--primary-light); color: var(--primary-dark); }
+
+/* ========== Top Bar ========== */
+.topbar {
+  background: white;
+  border-bottom: 1px solid var(--line-soft);
+  padding: 0 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--header-h);
+}
+.topbar h1 { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: var(--text); letter-spacing: -0.02em; }
+.topbar h1 small { font-weight: 400; font-size: 12px; color: var(--text-muted); }
+.topbar-actions { display: flex; align-items: center; gap: 6px; }
+.topbar-info { font-size: 11px; color: var(--text-muted); margin-right: 2px; padding: 3px 8px; background: var(--bg); border-radius: 999px; }
+
+/* ========== Buttons ========== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line-soft);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.15s;
+  text-decoration: none;
+  border-radius: var(--radius);
+  background: white;
+  color: var(--text-secondary);
+  padding: 6px 14px;
+}
+.btn:hover { border-color: #d1d5db; background: #f9fafb; }
+.btn-ghost {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.btn-ghost:hover { background: var(--bg); }
+.btn-primary {
+  background: var(--primary-gradient);
+  color: white;
+  border: none;
+  padding: 7px 18px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(16,185,129,0.25);
+}
+.btn-primary:hover { box-shadow: 0 4px 14px rgba(16,185,129,0.35); transform: translateY(-1px); }
+.btn-sm { padding: 3px 10px; font-size: 11px; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; transform: none; }
+.btn-ghost { background: transparent; border: none; color: var(--text-secondary); padding: 4px 10px; font-size: 12px; }
+.btn-ghost:hover { background: var(--bg); }
+.btn-outline { background: transparent; color: var(--text-secondary); border: 1px solid var(--line-soft); padding: 5px 12px; font-size: 12px; }
+.btn-outline:hover { background: var(--bg); border-color: #d1d5db; }
+.btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid #fecaca; padding: 2px 10px; font-size: 11px; }
+.btn-danger:hover { background: #fee2e2; }
+.btn-sm { padding: 3px 10px; font-size: 11px; }
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ========== Main Layout ========== */
+.layout {
+  display: flex;
+  height: calc(100vh - var(--header-h));
+  padding: 16px 20px;
+  gap: 16px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* Left Panel */
+.left-panel {
+  width: 320px;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.upload-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--panel-shadow);
+  padding: 16px;
+  border: 1px solid var(--line-soft);
+}
+.drop-zone {
+  border: 2px dashed #d1d5db;
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fafafa;
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+.drop-zone-icon { font-size: 22px; margin-bottom: 4px; }
+.drop-zone-text { font-size: 13px; color: var(--text-secondary); }
+.drop-zone-text strong { color: var(--primary); }
+.drop-zone-hint { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.upload-status {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  display: none;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  border: 1px solid #a7f3d0;
+}
+.upload-status.success { display: block; background: #ecfdf5; color: #065f46; border-color: #6ee7b7; }
+.upload-status.error { display: block; background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
+
+/* ========== Teacher Preference Panel ========== */
+.teacher-panel {
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--panel-shadow);
+  border: 1px solid var(--line-soft);
+  display: none;
+  flex-direction: column;
+  max-height: 180px;
+}
+.teacher-panel.show { display: flex; }
+.teacher-panel-header {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.teacher-panel-header .badge { font-size: 11px; font-weight: 400; color: var(--text-muted); }
+.teacher-list { padding: 6px 8px; overflow-y: auto; flex: 1; }
+.teacher-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.12s;
+  border: 1px solid transparent;
+  margin-bottom: 2px;
+}
+.teacher-item:hover { background: var(--bg); }
+.teacher-item.active { background: var(--primary-light); border-color: var(--primary); }
+.teacher-item .teacher-course {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text);
+  flex: 1;
+}
+.teacher-item .teacher-name {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 60px;
+}
+.teacher-item .teacher-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--line-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: white;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.teacher-item.active .teacher-check {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.teacher-item .teacher-module {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(15,122,71,0.1);
+  color: var(--primary-dark);
+}
+
+/* ========== Scheme List ========== */
+.scheme-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--panel-shadow);
+  border: 1px solid var(--line-soft);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+.scheme-card-header {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.scheme-card-header .count { font-weight: 400; color: var(--text-muted); font-size: 12px; }
+.scheme-list { flex: 1; overflow-y: auto; padding: 6px; }
+.scheme-item {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 3px;
+  border: 1px solid transparent;
+}
+.scheme-item:hover { background: var(--bg); }
+.scheme-item.active { background: var(--primary-light); border-color: var(--primary); }
+.scheme-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+.scheme-id { font-weight: 700; font-size: 13px; color: var(--text); }
+.scheme-item.active .scheme-id { color: var(--primary); }
+.scheme-group {
+  font-size: 10px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.group-capacity { background: #e3f2fd; color: #1565c0; }
+.group-balanced { background: #e0f2f1; color: #00695c; }
+.group-random { background: #fff3e0; color: #e65100; }
+.group-preferred { background: #f3e5f5; color: #6a1b9a; }
+.scheme-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.scheme-meta span { display: flex; align-items: center; gap: 2px; }
+.scheme-summary-text {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ========== Right Panel ========== */
+.right-panel {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  background: white;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--panel-shadow);
+  border: 1px solid var(--line-soft);
+  padding: 48px 36px;
+  text-align: center;
+}
+.empty-state-hero {
+  font-size: 72px;
+  margin-bottom: 16px;
+  line-height: 1;
+}
+.empty-state-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.empty-state-sub {
+  font-size: 15px;
+  color: var(--text-secondary);
+  max-width: 400px;
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+.empty-state-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  max-width: 480px;
+  width: 100%;
+  margin-bottom: 28px;
+}
+.empty-state-feat-card {
+  background: #fafafa;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 16px 14px;
+  text-align: left;
+  transition: all 0.2s;
+}
+.empty-state-feat-card:hover {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+.empty-state-feat-card .feat-icon { font-size: 22px; display: block; margin-bottom: 4px; }
+.empty-state-feat-card .feat-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.empty-state-feat-card .feat-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.empty-state-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--primary-gradient);
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16,185,129,0.3);
+  transition: all 0.2s;
+}
+.empty-state-action:hover {
+  box-shadow: 0 6px 20px rgba(16,185,129,0.4);
+  transform: translateY(-2px);
+}
+.empty-state-footer {
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ========== Course Detail Card ========== */
+.detail-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--panel-shadow);
+  border: 1px solid var(--line-soft);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.detail-card-header {
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.detail-card-header .strategy-tag {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.stats-bar {
+  display: flex;
+  gap: 16px;
+  padding: 10px 18px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line-soft);
+  background: #fafafa;
+}
+.stat-item { display: flex; align-items: center; gap: 3px; }
+.stat-item .stat-val { font-weight: 700; color: var(--text); }
+
+.course-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.course-table th {
+  background: #fafafa;
+  padding: 8px 14px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 12px;
+}
+.course-table td { padding: 8px 14px; border-bottom: 1px solid #f3f4f6; }
+.course-table tr:last-child td { border-bottom: none; }
+.course-table tr:hover td { background: #f9fafb; }
+
+.module-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.module-Sheet1 { background: #e3f2fd; color: #1565c0; }
+.module-Sheet2 { background: #e0f2f1; color: #00695c; }
+.module-Sheet3 { background: #fff3e0; color: #e65100; }
+.module-Sheet4 { background: #f3e5f5; color: #6a1b9a; }
+.module-已选 { background: #fce4ec; color: #c62828; }
+.module-优选 { background: #fff8e1; color: #f57f17; }
+
+.remaining-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.remaining-high { background: #d1fae5; color: #065f46; }
+.remaining-mid { background: #fed7aa; color: #9a3412; }
+.remaining-low { background: #fce4ec; color: #c62828; }
+
+.fav-icon {
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.5;
+  transition: all 0.15s;
+  user-select: none;
+}
+.fav-icon:hover { opacity: 1; transform: scale(1.15); }
+.fav-icon.fav-active { opacity: 1; }
+
+/* ========== Timetable ========== */
+.timetable-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--panel-shadow);
+  border: 1px solid var(--line-soft);
+  overflow: auto;
+}
+.timetable-card-header {
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--line-soft);
+  position: sticky; left: 0;
+}
+.timetable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  table-layout: fixed;
+  min-width: 720px;
+}
+.timetable th {
+  background: #f9fafb;
+  color: var(--text-secondary);
+  padding: 8px 4px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 11px;
+  border: 1px solid var(--line-soft);
+  position: sticky; left: 0;
+}
+.timetable th:first-child { width: 95px; }
+.timetable td {
+  border: 1px solid #f3f4f6;
+  vertical-align: top;
+  padding: 3px;
+  height: 88px;
+  width: 12.5%;
+  background: white;
+}
+.timetable .period-label {
+  font-weight: 600;
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-align: center;
+  background: #f9fafb;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+.timetable .period-label .period-sub { font-weight: 400; font-size: 9px; color: var(--text-muted); }
+.timetable .period-label .period-time { font-weight: 600; font-size: 9px; color: var(--text-secondary); }
+.course-cell {
+  background: #e8f5e9;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 6px;
+  margin-bottom: 2px;
+  font-size: 10px;
+  line-height: 1.35;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.course-cell .cell-name { font-weight: 700; color: #1b5e20; font-size: 10px; display: block; }
+.course-cell .cell-teacher { color: #558b2f; font-size: 9px; display: block; }
+.course-cell .cell-weeks { color: #9e9e9e; font-size: 8px; display: block; }
+.course-cell .cell-location { color: #9e9e9e; font-size: 8px; display: block; }
+.course-cell.type-base { background: #fce4ec; } /* Soft Pink */
+.course-cell.type-base .cell-name { color: #c62828; }
+.course-cell.type-Sheet1 { background: #e3f2fd; } /* Sky Blue */
+.course-cell.type-Sheet1 .cell-name { color: #1565c0; }
+.course-cell.type-Sheet2 { background: #e0f2f1; } /* Mint */
+.course-cell.type-Sheet2 .cell-name { color: #00695c; }
+.course-cell.type-Sheet3 { background: #fff3e0; } /* Peach */
+.course-cell.type-Sheet3 .cell-name { color: #e65100; }
+.course-cell.type-Sheet4 { background: #f3e5f5; } /* Lavender */
+.course-cell.type-Sheet4 .cell-name { color: #6a1b9a; }
+.course-cell.type-优选 { background: #fff8e1; } /* Cream */
+.course-cell.type-优选 .cell-name { color: #f57f17; }
+.timetable td.empty { color: #d1d5db; text-align: center; font-size: 10px; }
+
+/* ========== Loading ========== */
+.loading { display: none; align-items: center; justify-content: center; padding: 14px; }
+.loading.show { display: flex; }
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ========== Scrollbar ========== */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+
+/* ========== Animations ========== */
+.fade-in { animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ========== Help Modal ========== */
+.help-btn { background: transparent; color: var(--text-secondary); border: none; padding: 5px 10px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
+.help-btn:hover { background: var(--bg); }
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: white;
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 720px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+  animation: modalIn 0.2s ease;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+.modal-header h2 { font-size: 16px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 6px; }
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.15s;
+  line-height: 1;
+}
+.modal-close:hover { background: var(--primary-light); color: var(--text); }
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+  line-height: 1.7;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.modal-body h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 20px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--primary-light);
+}
+.modal-body h3:first-child { margin-top: 0; }
+.modal-body h4 { font-size: 14px; font-weight: 600; color: var(--text); margin: 14px 0 6px; }
+.modal-body p { margin: 6px 0; }
+.modal-body ul, .modal-body ol { margin: 6px 0 6px 18px; }
+.modal-body li { margin: 4px 0; }
+.modal-body code {
+  background: var(--primary-light);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--primary-dark);
+  font-family: "SF Mono", Consolas, monospace;
+}
+.modal-body table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0; }
+.modal-body th {
+  background: var(--primary-light);
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 12px;
+}
+.modal-body td { padding: 5px 10px; border-bottom: 1px solid rgba(28,74,55,0.08); }
+
+/* ========== Responsive ========== */
+@media (max-width: 900px) {
+  .layout { flex-direction: column; height: auto; }
+  .left-panel { width: 100%; min-width: auto; }
+  .right-panel { min-height: 500px; }
+  .teacher-panel { max-height: 160px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ========== Top Bar ========== -->
+<header class="topbar">
+  <h1>📚 智能排课系统 <small>— 自助选课方案生成器</small></h1>
+  <div class="topbar-actions">
+    <button class="help-btn" onclick="toggleHelp()">❓ 帮助</button>
+    <span class="topbar-info">v3.0 · 内置生成模板 · 优选教师</span>
+  </div>
+</header>
+
+<!-- ========== Main Layout ========== -->
+<div class="layout">
+
+  <!-- Left Panel -->
+  <div class="left-panel">
+    <div class="upload-card">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-icon">📂</div>
+        <div class="drop-zone-text"><strong>点击上传</strong> 或拖拽Excel文件</div>
+        <div class="drop-zone-hint">支持 .xlsx / .xls（含课程数据 + 模板格式）</div>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+      <div class="upload-status" id="uploadStatus"></div>
+    </div>
+
+    <!-- Teacher Preference Panel -->
+    <div class="teacher-panel" id="teacherPanel">
+      <div class="teacher-panel-header">
+        <span>⭐ 优选教师</span>
+        <span class="badge" id="teacherCount">点击老师可标记为优选</span>
+      </div>
+      <div class="teacher-list" id="teacherList"></div>
+    </div>
+
+    <!-- Scheme List -->
+    <div class="scheme-card">
+      <div class="scheme-card-header">
+        <span>📋 选课方案</span>
+        <span class="count" id="schemeCount">待生成</span>
+      </div>
+      <div class="loading" id="loadingSchemes">
+        <div class="spinner"></div>
+        <span style="color:var(--text-muted);font-size:13px;">正在生成方案...</span>
+      </div>
+      <div class="scheme-list" id="schemeList"></div>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel" id="rightPanel">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-state-hero">📚</div>
+      <div class="empty-state-title">智能排课系统</div>
+      <div class="empty-state-sub">
+        上传课程 Excel，系统自动生成 20 套选课方案。<br>
+        支持优选教师、容量优先、时间均衡等多策略对比。
+      </div>
+      <div class="empty-state-features">
+        <div class="empty-state-feat-card">
+          <span class="feat-icon">📂</span>
+          <div class="feat-label">上传 Excel</div>
+          <div class="feat-desc">拖拽或点击上传 .xlsx 课程数据</div>
+        </div>
+        <div class="empty-state-feat-card">
+          <span class="feat-icon">⭐</span>
+          <div class="feat-label">优选教师</div>
+          <div class="feat-desc">标记心仪教师，优先推荐其课程</div>
+        </div>
+        <div class="empty-state-feat-card">
+          <span class="feat-icon">📋</span>
+          <div class="feat-label">20 套方案</div>
+          <div class="feat-desc">多策略生成，对比选择最优组合</div>
+        </div>
+        <div class="empty-state-feat-card">
+          <span class="feat-icon">📅</span>
+          <div class="feat-label">课表视图</div>
+          <div class="feat-desc">周课表直观展示，一目了然</div>
+        </div>
+      </div>
+      <button class="empty-state-action" onclick="document.getElementById('fileInput').click()">
+        📂 点击上传 Excel 文件
+      </button>
+      <div class="empty-state-footer">
+        支持 .xlsx 格式 · 需含：课程名称、教师姓名、上课时间、上课周次、限选人数、班级人数
+      </div>
+    </div>
+
+    <!-- Scheme Detail -->
+    <div id="schemeDetail" style="display:none">
+
+      <div class="detail-card fade-in">
+        <div class="detail-card-header">
+          <span id="schemeTitle">方案 #1</span>
+          <span class="strategy-tag" id="schemeGroup"></span>
+        </div>
+        <div class="stats-bar" id="statsBar"></div>
+        <table class="course-table">
+          <thead>
+            <tr>
+              <th style="width:50px">模块</th>
+              <th>课程名称</th>
+              <th style="width:50px">学分</th>
+              <th style="width:65px">教师</th>
+              <th>时间</th>
+              <th style="width:65px">地点</th>
+              <th style="width:60px">名额</th>
+              <th style="width:36px">⭐</th>
+            </tr>
+          </thead>
+          <tbody id="courseTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="timetable-card fade-in">
+        <div class="timetable-card-header">📅 周课表</div>
+        <div style="overflow-x:auto">
+          <table class="timetable" id="timetable">
+            <thead>
+              <tr>
+                <th>时间段</th>
+                <th>星期一</th>
+                <th>星期二</th>
+                <th>星期三</th>
+                <th>星期四</th>
+                <th>星期五</th>
+                <th>星期六</th>
+                <th>星期日</th>
+              </tr>
+            </thead>
+            <tbody id="timetableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Help Modal ========== -->
+<div class="modal-overlay" id="helpModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>📖 帮助文档</h2>
+      <button class="modal-close" onclick="toggleHelp()">✕</button>
+    </div>
+    <div class="modal-body">
+      <h3>📌 系统简介</h3>
+      <p><strong>智能排课系统 — 自助选课方案生成器</strong> 内置 <strong>生成模板</strong> 默认课表，打开即可查看。上传 Excel 后采用 <strong>多策略分阶段算法</strong> + <strong>优选教师</strong> 机制，自动生成 20 套选课方案。</p>
+
+      <div style="background:var(--primary-light);border-radius:var(--radius-sm);padding:8px 12px;margin:10px 0;font-size:13px;color:var(--primary-dark);">
+        💡 <strong>打开即用：</strong> 页面已内置「生成模板」课表，无需上传即可浏览参考。上传你的 Excel 后自动切换为智能生成的方案。
+      </div>
+
+      <h3>🚀 使用步骤</h3>
+      <ol>
+        <li><strong>浏览默认课表</strong> — 打开页面即可查看内置的「生成模板」参考课表</li>
+        <li><strong>准备 Excel</strong> — 按格式准备课程数据（含：课程名称、教师姓名、上课时间、上课周次、限选人数、班级人数）</li>
+        <li><strong>上传文件</strong> — 点击或拖拽上传 .xlsx 文件，系统自动解析并隐藏默认课表</li>
+        <li><strong>⭐ 标记优选教师</strong> — 在左侧「优选教师」面板中点击老师姓名，设为首选</li>
+        <li><strong>浏览方案</strong> — 系统自动生成 20 套方案，优先推荐优选教师的课程组合</li>
+      </ol>
+
+      <h3>⭐ 优选教师功能</h3>
+      <p>上传 Excel 后，系统会提取所有教师名单。你可以在左侧「优选教师」面板中点击老师姓名，将其标记为 ⭐ 优选（再次点击取消）。标记后：</p>
+      <ul>
+        <li>方案生成算法会 <strong>优先组合优选教师的课程</strong>，含有优选教师的方案排在前列</li>
+        <li>含有优选教师课程的方案以 <strong>紫色标签「优选推荐」</strong> 标识</li>
+        <li>课程列表中优选教师的课程行显示 ⭐ 图标</li>
+        <li>课表中优选教师的课程以 <strong>黄色边框</strong> 突出显示</li>
+        <li>标记或取消优选教师后，方案会自动 <strong>重新生成</strong></li>
+      </ul>
+
+      <h3>📊 Excel 格式说明</h3>
+      <p>上传的 .xlsx 文件需包含以下列（列名必须完全一致，不含多余空格）：</p>
+      <table>
+        <thead>
+          <tr><th style="width:100px">列名</th><th>说明</th><th style="width:60px">必填</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>课程名称</code></td><td>课程全称，如"高等数学"</td><td>✅</td></tr>
+          <tr><td><code>教师姓名</code></td><td>授课教师名称</td><td>✅</td></tr>
+          <tr><td><code>上课时间</code></td><td>支持多种格式：<br><code>周一第1,2节</code><br><code>周四第3,4节{第5-16周}(全部)[教室]</code></td><td>✅</td></tr>
+          <tr><td><code>上课周次</code></td><td>如 <code>1-16</code>（第1到16周）或 <code>3,5,7</code>（不连续）</td><td>✅</td></tr>
+          <tr><td><code>限选人数</code></td><td>课程容量上限（数字）</td><td>✅</td></tr>
+          <tr><td><code>班级人数</code></td><td>当前已选人数（数字）</td><td>✅</td></tr>
+          <tr><td><code>上课地点</code></td><td>教室或地点（可选）</td><td>—</td></tr>
+        </tbody>
+      </table>
+
+      <h4>📑 工作表（Sheet）设置演示</h4>
+      <p>下图演示了如何组织 Excel 中的工作表（将课程按模块分到不同工作表中）：</p>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAagAAAAVCAYAAAATkXrfAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAjVSURBVHhe7Zzfa1ppGse/6bK93BloKmwbb9pjbKyB3m5gWRKYaGgIBIdI+h8kqSSu1155LUkw1v9ggmEkIC1RLxKGgfTWqfZkNCfDgiYDxoFeLOw229C9eN/z6805GuPRY5v3AwfG93l9z8m34/me53kfHTqr/eszOBwOx0KG2AFOS/793/9BEAR2+NZzhx3gcDgcDmcQ4AbFsY2zs9/ZoVsH14BrwDGHGxSHw7GczyYHh9MJ3KA4HA6HM5AM8SaJr4kCVj0puLK7ePkF7Leenf2OBw/+yg53CddgkDUwap7opQZCdhehAdPAiJs1SRxiMRpHhh1m8ExtoDjpBFBDLLEGcTKDbS+Achx30zVEQwsQE3EcKfNktPNbncuJaGgDUQd92djBs0QamApibD9t8B5mfgvaZlAHP/2Mg59+ZocBAOfNJprNP9jhG2HlWgBwfm7deufNJs6bTXYYaKNP7yhg1TMONz1W82y8H5BrmE1KbKBP2KxBPqKc2+2Zx5YtMtisge78EeTYcF8g1zBKj/5rIEOu43lfPw8T2I5lcGF2BCf00xtvkWkAmTQxmsz7QwBOeMyMgpkPanYXoSA8AAJB/Tky6QDuRgO4m0hD9EZQnBwhAW/E/Jra0NagLi8vcXl5yQ6jXj/FL+/KKJXfs6GOsXItmdJ7EcV3JdTrp2yoY8plEb+8KxuuZaZP7yhg1RMB1kuoiCVUxF24kr28OUjYmtN+8MlrtycP+PQz+4fdGhSwmhTwWqTnX3+ExFwvz2+E3RpI2JrLY4ZqsOkrYDVc0L+l56gaVMUSquIuhGQEe+w0y5CQ0GmgcpxM9fC8FuFYQDEUhMdRg1g+xI9l6LIwcX+NGEx0DbEGnR+cABwAGmQJcX+NGJBsSOlDZflAMKOa19POjMiMtgZlRL1+il+rxwAAl/CYDXeElWtpcbtIuvxr9djQWDpBvi4r1uoa6QQnwjJeKuYg4GU2Dr9+Vg8R8DJbQkWMY4YN9QvbNZjGZnYJLvmlzwc/foPUz4dn2zXQn8/vnwZOTkA+yX1COoHEaBDK2vD/pZTCWn4aIRse2EjWYlZ6M8CxgGJoA1G8RQZOREMZXMQiCMjZUSyDi5im/OaN4CIUQYC+Ns+gaoglaPakmNdbEirHqfHpDe06dGxQWkNxjwoYGXnITrk2Vq7F8vDhAzwZJbeQbo1lZOQh3KPWGV5XCI/xWHqFLYOnOAVt+Un3VKsvCenLc0axAlY980hIQC48Dvdcqr83IDMGTYN8Hjk8QsdbCN0wYBrkcgW4fN+ppt0PhMcQrqGBXP4bNdBAjulLc0YxVYO98DhGFQ0kJP75CsLKEvr5z38TlBJcNI6MN6I3oitQw4kGcDexA5GOmmdQxOy2veQVMa+ISQmy1Xn1dGRQ582mxlBccI7QGuMNsHItM1hj6WZPyjkyArfG8Mz2pHrPNDbXp8mNwrDuLyEh+UjZJ7sMVz5F90cKdONcLQn58/O0XGEWm8amSDaZ/eslVLRZg60MkAZSCrPhAvzr/cxeMBgaSCnMUiPb85fweqXft2iiwV54HKMeo9Ie0aAqllClGiQ0GghZtTTIanA1pmows15ClWqwF55HzreLTRuyJ5VDLMoZivZgspVAMIPiFGmCEA/kcp6agaklvgBtnlANR7ffpc2gdIYjlw2BTHoNsfIOnrHXRI9nBzV54ZZ0ZFBfJkZ9Q184vjgqYgmvV34jT7u6J0MBoZVp+p/fwS/fM/J55GgNnTwdk6fBE0lqHRtUBkCD4+Q83HMF+LMle25QdmsgLCn7cDM548yq5/jiqIolvKEa6LMkcw326N9JsiTyd0pUA9MYSz6C1ZNlbPTdmFlaN0voO/MInskN1Vi8EWpcmnWYZoYjraFpMyiNGYoHO8g4nPAAJANL1xCl6217ATiCKLa4JiM6Mqj7w8NK2axSPUatXmenXBsr1zKjVq+jQrO0J6MuDA/fY6dcm1r9VLfW/eFhdkrfca3soiLG4c9HDDduryAsqxv79FCeelvFBhi7NMiFxzErLaEi2t/KbZcGWvzrcfilAvIG9/F+4FrZRVWMY6YDDd6IcpZEjjcaDUxjChISyQIgvcJzTQfhcXJeU/4bBEh2tUgzGx3lHcQabEMDKe2x88cm6f4UY1zKvlVwAkeNGgJeEifZ1d/wIzWwxTKARppmVLQJ4xp0ZFCgZTPVWKSu9mOsXIulXj9FpUo+LU9GXV3tb5G1VHPqZq2uoSUlPQJc7fpLfD74mXp9LkxLQ61ig4jdGkgpbOVJeck2BkAD7fmPkynkhGn42Pt4L5FSeG6gQdteK58PM8zfuRemJcJWMR0CQkoZkBybPmqUbBnYThp1HCkt5drxHTxLH8IztYFtL+B5OgEPDrEYXUOswbaeH+JFYgciDrGYriEapCW+qSCwH1fMJvA0gu+fat+nZmT6DKpHe1AyWmM5lk7YcEdYuZaWKl3LCkOxcq2uEZawLqTUzW9PBFi/zlP8NDazyzgJy+8bx55f3jdpFRPg8wmmm+O2YLcGJxKOmWYCd7+/g2O3Bsz5Z5OP9J2N/UBYwoaQUpsgqAbtv5hL/k4prDZC5Pxy91+rmAC/T2CaJOxlzEG+gCuaZSSNGkQAHocTaOzgxX6NZFVp4Adtqc2xoJTfrhhIo4axyRHEonEcTUXU2P0F/DAFxBK0i9A7gYDmbVbQ9pck5C+hTv7j72xIaRSwotxl5VoAlIaIbsp6Ms3mH/iMz4bX1kofTmt68wsCXxa3TQOjHeHbpoERN/slCSi/9tCyZOYIohhaAA7W8AIRFCedyKSvlvF0eCO4CDqVX5L4/n0Ai4iQEh/9pYixIMmMxIM1PCtPoBhagEeJbcBz0OK66DWR/Spz2hoUh9Mr+I2JawCNBkbmdVu4uUF93dyoxMfhcDgc6xgaGsKnT5/Y4VsPNygOh8OxmTtDwMePH9nhWw83KA6Hw7GZP//pDj58+MAO33r4HhSHwxkIbvMeFAD85+IT/vLNt7h3r/vGrq+F/wN4vnHCJsNuHQAAAABJRU5ErkJggg==" alt="Sheet设置演示" style="max-width:100%;border-radius:var(--radius);margin:8px 0;border:1px solid var(--line-soft);">
+
+      <h4>📋 各工作表内容设置演示</h4>
+      <p>每个工作表中按列组织课程数据，下图为各列内容的填写示例：</p>
+      <img src="data:image/png;base64,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" alt="各Sheet内容设置演示" style="max-width:100%;border-radius:var(--radius);margin:8px 0;border:1px solid var(--line-soft);">
+
+      <h4>📑 工作表定义与优先级</h4>
+      <p>系统按以下规则处理 Excel 中的每个工作表：</p>
+      <table>
+        <thead>
+          <tr><th style="width:140px">工作表名</th><th>角色</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>已选</code> 或 <code>已选课程</code></td>
+            <td>🔒 固定课表</td>
+            <td>这些工作表中的课程视为 <strong>已选课程（固定课表）</strong>，生成方案时始终包含，不会重复选择。适合放你已经确定要上的课。</td>
+          </tr>
+          <tr>
+            <td><code>通识课</code>、<code>体育课</code>、<code>思政课</code> …</td>
+            <td>📦 课程模块</td>
+            <td>每个工作表是一个 <strong>课程模块</strong>，工作表名即模块名。生成方案时，每套方案从每个模块中 <strong>各选一门课</strong> 组合而成（同一模块内的课程互斥）。<br>
+            例如「通识课」表放通识课、「体育课」表放体育课，则每套方案包含一门通识 + 一门体育。</td>
+          </tr>
+          <tr>
+            <td><code>microsoft.com:*</code></td>
+            <td>⏭️ 自动跳过</td>
+            <td>系统自动跳过所有以 <code>microsoft.com:</code> 开头的内部工作表，无需手动处理。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="background:var(--primary-light);border-radius:var(--radius-sm);padding:10px 14px;margin:10px 0;font-size:13px;color:var(--primary-dark);">
+        <strong>📎 示例：</strong> 如果你的 Excel 包含「通识课」、「体育课」、「已选课程」三个工作表，则每套方案 = <strong>已选课程 + 1门通识课 + 1门体育课</strong>，且不会时间冲突。
+      </div>
+
+      <h4>📍 校区筛选</h4>
+      <div style="background:#fff7ed;border-radius:var(--radius-sm);padding:10px 14px;margin:10px 0;font-size:13px;color:#9a3412;border:1px solid #fed7aa;">
+        <strong>⚠️ 重要提示：</strong> 课程数据中可能同时包含 <strong>东校区</strong> 和 <strong>西校区</strong> 的课程。<br><br>
+        上传前请先通过 Excel 的「校区」列筛选，<strong>删除非入住校区的课程行</strong>，只保留你所在校区的课程，以避免生成无法前往上课的方案。
+      </div>
+
+      <p style="font-size:12px;color:var(--text-muted);">
+        💡 支持从学校教务系统导出的 Excel（含 <code>{第X-X周}(全部)[地点]</code> 后缀），无需手动修改时间格式。
+      </p>
+
+      <h3>🎯 方案生成策略</h3>
+      <p>每次上传后自动生成 20 套方案，分四阶段：</p>
+      <ul>
+        <li><strong>⭐ 优选推荐</strong> — 标记优选教师后，优先组合其课程（如有）</li>
+        <li><strong>容量优先（~3套）</strong> — 优先选取剩余名额多的课程，选课成功率高</li>
+        <li><strong>时间均衡（~3套）</strong> — 兼顾容量与上课时间分布，按少早八、少晚课、单日均衡排序</li>
+        <li><strong>随机探索（~4套）</strong> — 从剩余合法组合中随机选取，提供多样化选择</li>
+      </ul>
+
+      <h3>🖥️ 界面速览</h3>
+      <table>
+        <thead>
+          <tr><th style="width:60px">区域</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>📂 左侧上传区</td><td>上传 Excel 文件，显示解析状态</td></tr>
+          <tr><td>⭐ 优选教师面板</td><td>上传后显示教师名单，点击标记优选</td></tr>
+          <tr><td>📋 方案列表</td><td>10 套方案概览，点击切换查看详情</td></tr>
+          <tr><td>📅 右侧课表</td><td>默认显示内置「生成模板」，上传后显示当前方案课表</td></tr>
+        </tbody>
+      </table>
+
+      <h3>❓ 常见问题</h3>
+      <h4>打开页面显示什么？</h4>
+      <p>页面已内置一份 <strong>「生成模板」</strong> 课表作为参考，打开即可看到。上传你的 Excel 文件后会自动切换。</p>
+
+      <h4>上传后显示"未找到有效课程数据"？</h4>
+      <p>检查 Excel 列名是否包含以下六列且完全匹配：<code>课程名称</code>、<code>教师姓名</code>、<code>上课时间</code>、<code>上课周次</code>、<code>限选人数</code>、<code>班级人数</code>。注意列名不含多余空格。</p>
+
+      <h4>上课时间格式复杂，需要手动修改吗？</h4>
+      <p>不需要。系统支持教务系统导出的原始格式，如 <code>周四第3,4节{第5-16周}(全部)[工院楼-267]</code>，<code>{...}</code> 和 <code>[...]</code> 后缀会被自动忽略。</p>
+
+      <h4>优选教师不生效？</h4>
+      <p>标记优选教师后，方案会 <strong>自动重新生成</strong>。优选教师的课程会在容量优先阶段优先组合，含有优选教师的方案排在列表前面。</p>
+
+      <h4>什么是"早八"和"晚课"？</h4>
+      <p><strong>早八</strong> = 第1-2节（08:00-09:50）；<strong>晚课</strong> = 第9节及以后（19:00-）。</p>
+
+      <h4>每个工作表（Sheet）分别代表什么？</h4>
+      <p>系统将每个工作表视为一个 <strong>课程模块</strong>。每个模块内的课程是互斥的（只能选一门），但不同模块的课程可以自由组合。例如：</p>
+      <ul>
+        <li><code>Sheet1</code> = 思政课模块 → 每套方案从中选 1 门</li>
+        <li><code>Sheet2</code> = 体育课模块 → 每套方案从中选 1 门</li>
+        <li><code>已选</code> 或 <code>已选课程</code> = 固定课表 → 所有方案都包含这些课</li>
+      </ul>
+      <p>系统自动跳过 <code>microsoft.com:*</code> 内部工作表。</p>
+
+      <h4>可以自己定义模块名称吗？</h4>
+      <p>可以。工作表的名称就是模块名称，例如将工作表改名为 <strong>"通识课"</strong>、<strong>"专业课"</strong>，系统会按这些名称生成模块标签。</p>
+
+      <h4>文件有多个工作表，怎么处理？</h4>
+      <p>系统读取所有非隐藏工作表中的课程数据。名为 <strong>"已选"</strong> 或 <strong>"已选课程"</strong> 的工作表视为已选课程（固定课表），在每套方案中都会出现。其他每个工作表被视为一个课程模块，每套方案从每个模块中各选一门课。系统自动跳过 microsoft.com 内部工作表。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Built-in 生成模板 — 默认课表（从 课程1.xlsx 提取）
+// ============================================================
+const TEMPLATE_TIMETABLE = {
+  headers: ['', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'],
+  rows: [
+    ['第一大节\n(01,02小节)\n08:00-09:50', '', '', '', '', '', '', '大学物理实验B60200013    02    \n吕洪凤副教授*\n1([周])[01-02-03-04节]\n三教三教-118'],
+    ['第二大节\n(03,04小节)\n10:10-12:00', '工程材料与成形技术23307919    10    \n简建明副教授*\n1-15([周])[03-04节]\n三教三教-504', '', '形势与政策52213001    79    \n张银*,卢兆彤副研究员（社会科学）,形势与政策课教师副教授\n13-16([周])[03-04节]\n三教三教-118', '毛泽东思想和中国特色社会主义理论体系概论52313018    19    \n张晓群副教授*\n1-12([周])[03-04节]\n三教三教-422', '电路与电子技术基础60100008    01    \n杨卫中副教授*\n1-12([周])[03-04节]\n信电楼信电楼-131', '', '大学物理实验B60200013    02    \n吕洪凤副教授*\n1([周])[01-02-03-04节]\n三教三教-118'],
+    ['第三大节\n(05,06小节)\n14:00-15:50', '精度与测量33307002    03    \n郑路副教授*\n13-16([周])[05-06节]\n工院楼工院楼-259', '', '电路与电子技术基础60100008    01    \n杨卫中副教授*\n1-12([周])[05-06节]\n信电楼信电楼-131', '', '人工智能基础33307059    02    \n胡标副教授*\n7-14([周])[05-06-07-08节]\n工院楼工院楼-264', '', ''],
+    ['第四大节\n(07,08小节)\n16:10-18:00', '毛泽东思想和中国特色社会主义理论体系概论52313018    19    \n张晓群副教授*\n1-12([周])[07-08节]\n三教三教-422', '', '', '精度与测量33307002    03    \n郑路副教授*\n9-16([周])[07-08节]\n工院楼工院楼-259', '人工智能基础33307059    02    \n胡标副教授*\n7-14([周])[05-06-07-08节]\n工院楼工院楼-264', '', ''],
+    ['第五大节\n(09,10小节)\n19:00-20:50', '', '', '', '', '', '', ''],
+    ['第六大节\n(11,12小节)\n21:00-22:30', '', '', '', '', '', '', '']
+  ]
+};
+
+// ============================================================
+// Core Utilities
+// ============================================================
+const DAY_EN = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const DAY_CN = ['星期一','星期二','星期三','星期四','星期五','星期六','星期日'];
+const DAY_MAP = {'周一':'Mon','周二':'Tue','周三':'Wed','周四':'Thu','周五':'Fri','周六':'Sat','周日':'Sun'};
+
+function parseWeeks(s) {
+  const weeks = new Set();
+  if (!s || s === 'nan' || s === 'NaN') return weeks;
+  String(s).split(',').forEach(part => {
+    part = part.trim();
+    const m = part.match(/^(\d+)-(\d+)$/);
+    if (m) { for (let w = parseInt(m[1]); w <= parseInt(m[2]); w++) weeks.add(w); }
+    else if (/^\d+$/.test(part)) weeks.add(parseInt(part));
+  });
+  return weeks;
+}
+
+function parseTimeString(s) {
+  const dayPeriods = {};
+  const timeSlots = {};
+  if (!s) return { dayPeriods, timeSlots };
+  const parts = String(s).split(/[;；]/);
+  for (const part of parts) {
+    const m = part.trim().match(/^(\S+?)第([\d,，]+)节/);
+    if (!m) continue;
+    const dayInput = m[1].trim();
+    const day = DAY_MAP[dayInput] || dayInput;
+    const periods = m[2].split(/[,，]/).map(Number).filter(n => !isNaN(n));
+    if (!dayPeriods[day]) dayPeriods[day] = new Set();
+    periods.forEach(p => dayPeriods[day].add(p));
+    periods.forEach(p => {
+      const key = `${day},${p}`;
+      if (!timeSlots[key]) timeSlots[key] = new Set();
+      // weeks will be added later
+    });
+  }
+  return { dayPeriods, timeSlots };
+}
+
+function periodToBigPeriod(p) {
+  if (p <= 2) return 1;
+  if (p <= 4) return 2;
+  if (p <= 6) return 3;
+  if (p <= 8) return 4;
+  if (p <= 10) return 5;
+  return 6;
+}
+
+function formatWeeks(ws) {
+  const arr = [...ws].sort((a,b) => a-b);
+  if (arr.length === 0) return '';
+  const ranges = [];
+  let start = arr[0], end = arr[0];
+  for (let i = 1; i < arr.length; i++) {
+    if (arr[i] === end + 1) { end = arr[i]; }
+    else { ranges.push(start === end ? `${start}` : `${start}-${end}`); start = end = arr[i]; }
+  }
+  ranges.push(start === end ? `${start}` : `${start}-${end}`);
+  return ranges.join(',');
+}
+
+function hasConflict(course1, course2) {
+  for (const [day, periods1] of Object.entries(course1.dayPeriods)) {
+    const periods2 = course2.dayPeriods[day];
+    if (!periods2) continue;
+    for (const p1 of periods1) {
+      if (periods2.has(p1)) {
+        // Check week overlap
+        const slot1 = course1.timeSlots[`${day},${p1}`];
+        const slot2 = course2.timeSlots[`${day},${p1}`];
+        if (slot1 && slot2) {
+          for (const w of slot1) if (slot2.has(w)) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function comboSignature(combo) {
+  return combo.map(c => c._uid || c.name + c.teacher + c.weekStr).sort().join('|');
+}
+
+// ============================================================
+// Excel Parsing
+// ============================================================
+function parseExcel(data) {
+  const wb = XLSX.read(data, { type: 'array' });
+  const modules = {};
+  const moduleOrder = [];
+  let selectedBase = [];
+
+  for (const sheetName of wb.SheetNames) {
+    // Skip Microsoft internal sheets
+    if (sheetName.startsWith('microsoft.com:')) continue;
+
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    if (rows.length === 0) continue;
+
+    // Check if this sheet has course data columns
+    const firstRow = rows[0];
+    const hasCourseData = firstRow && (
+      firstRow['课程名称'] || firstRow['教师姓名'] || firstRow['上课时间'] || firstRow['上课周次']
+    );
+    if (!hasCourseData) continue;
+
+    const sheetNameTrimmed = sheetName.trim();
+    const isBase = sheetNameTrimmed === '已选' || sheetNameTrimmed === '已选课程' || sheetNameTrimmed === '已选课';
+    const moduleLabel = isBase ? '已选' : sheetNameTrimmed;
+
+    const courses = [];
+    for (const row of rows) {
+      const name = String(row['课程名称'] || '').trim();
+      const teacher = String(row['教师姓名'] || '').trim();
+      const timeRaw = String(row['上课时间'] || '').trim();
+      const weeksRaw = String(row['上课周次'] || '').trim();
+      const limit = parseInt(row['限选人数']) || 0;
+      const enrolled = parseInt(row['班级人数']) || 0;
+      const location = String(row['上课地点'] || '').trim();
+      const credits = parseFloat(row['学分']) || 0;
+
+      if (!name || !teacher || !timeRaw || !weeksRaw) continue;
+
+      const { dayPeriods, timeSlots } = parseTimeString(timeRaw);
+      if (Object.keys(dayPeriods).length === 0) continue;
+
+      const weeks = parseWeeks(weeksRaw);
+      if (weeks.size === 0) continue;
+
+      // Add weeks to time slots
+      for (const [day, periods] of Object.entries(dayPeriods)) {
+        for (const p of periods) {
+          const key = `${day},${p}`;
+          if (!timeSlots[key]) timeSlots[key] = new Set();
+          weeks.forEach(w => timeSlots[key].add(w));
+        }
+      }
+
+      const remaining = limit - enrolled;
+      const uid = `${name}|${teacher}|${timeRaw}|${weeksRaw}|${location}`;
+
+      courses.push({
+        name, teacher, dayPeriods, timeSlots, weeks,
+        weekStr: weeksRaw, location, credits,
+        limit, enrolled, remaining,
+        module: moduleLabel, _uid: uid
+      });
+    }
+
+    if (courses.length > 0) {
+      if (isBase) {
+        selectedBase = courses;
+      } else {
+        modules[moduleLabel] = courses;
+        moduleOrder.push(moduleLabel);
+      }
+    }
+  }
+
+  return { modules, moduleOrder, selectedBase };
+}
+
+// ============================================================
+// Teacher Priority
+// ============================================================
+let preferredTeachers = new Set();
+
+function buildTeacherList(modules) {
+  const teacherMap = new Map();
+  for (const [moduleName, courses] of Object.entries(modules)) {
+    for (const c of courses) {
+      const key = c.teacher;
+      if (!teacherMap.has(key)) {
+        teacherMap.set(key, { teacher: key, courses: [], modules: new Set() });
+      }
+      teacherMap.get(key).courses.push(c);
+      teacherMap.get(key).modules.add(moduleName);
+    }
+  }
+  return [...teacherMap.values()].sort((a, b) => b.courses.length - a.courses.length);
+}
+
+function renderTeacherPanel(modules) {
+  const teachers = buildTeacherList(modules);
+  const panel = document.getElementById('teacherPanel');
+  const list = document.getElementById('teacherList');
+
+  if (teachers.length === 0) {
+    panel.classList.remove('show');
+    return;
+  }
+
+  panel.classList.add('show');
+  document.getElementById('teacherCount').textContent = `${teachers.length}位教师 · 点击标记优选`;
+
+  list.innerHTML = teachers.map(t => {
+    const isFav = preferredTeachers.has(t.teacher);
+    const mods = [...t.modules].join(', ');
+    return `<div class="teacher-item${isFav ? ' active' : ''}" data-teacher="${t.teacher}" onclick="toggleTeacher(this)">
+      <div class="teacher-check">${isFav ? '✓' : ''}</div>
+      <div class="teacher-name">${t.teacher}</div>
+      <div class="teacher-course">${t.courses.length}门课</div>
+      <span class="teacher-module">${mods}</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleTeacher(el) {
+  const teacher = el.dataset.teacher;
+  const isActive = el.classList.contains('active');
+
+  if (isActive) {
+    el.classList.remove('active');
+    el.querySelector('.teacher-check').textContent = '';
+    preferredTeachers.delete(teacher);
+  } else {
+    el.classList.add('active');
+    el.querySelector('.teacher-check').textContent = '✓';
+    preferredTeachers.add(teacher);
+  }
+
+  // Regenerate schemes
+  regenerateSchemes();
+}
+
+function isTeacherPreferred(teacher) {
+  return preferredTeachers.has(teacher);
+}
+
+// ============================================================
+// Scheme Generation
+// ============================================================
+function generateSchemes(allModules, base, num = 20) {
+  const moduleKeys = Object.keys(allModules);
+  if (moduleKeys.length === 0) return [];
+
+  // Build combinations (one course per module)
+  let combos = [[]];
+  for (const key of moduleKeys) {
+    const next = [];
+    for (const combo of combos) {
+      for (const course of allModules[key]) {
+        // Check conflict with existing combo and base
+        let ok = true;
+        for (const c of combo) { if (hasConflict(c, course)) { ok = false; break; } }
+        if (ok) { for (const b of base) { if (hasConflict(b, course)) { ok = false; break; } } }
+        if (ok) next.push([...combo, course]);
+      }
+    }
+    combos = next;
+    if (combos.length === 0) break;
+  }
+
+  if (combos.length === 0) return [];
+
+  // Sort combos by remaining capacity (desc)
+  const sorted = combos.slice().sort((a, b) => {
+    const ra = a.reduce((s, c) => s + c.remaining, 0);
+    const rb = b.reduce((s, c) => s + c.remaining, 0);
+    return rb - ra;
+  });
+
+  // Calculate stats for a combo
+  function calcStats(combo, baseCourses) {
+    const all = [...baseCourses, ...combo];
+    const daysWithClass = new Set();
+    let maxDayPeriods = 0;
+    const dayCounts = {};
+    let totalRemaining = 0;
+    let hasMorning = false, hasNight = false;
+    let preferredCount = 0;
+    let totalCredits = 0;
+
+    for (const c of all) {
+      if (isTeacherPreferred(c.teacher)) preferredCount++;
+      totalRemaining += c.remaining;
+      totalCredits += c.credits || 0;
+      for (const [day, periods] of Object.entries(c.dayPeriods)) {
+        daysWithClass.add(day);
+        dayCounts[day] = (dayCounts[day] || 0) + periods.size;
+        if (dayCounts[day] > maxDayPeriods) maxDayPeriods = dayCounts[day];
+        for (const p of periods) {
+          if (p <= 2) hasMorning = true;
+          if (p >= 9) hasNight = true;
+        }
+      }
+    }
+
+    return {
+      totalRemaining, daysWithClass: daysWithClass.size,
+      maxDayPeriods, dayCounts, hasMorning, hasNight,
+      preferredCount, totalCredits
+    };
+  }
+
+  const usedSigs = new Set();
+  const selected = [];
+
+  function tryAdd(combo, group, strategy) {
+    const sig = comboSignature(combo);
+    if (usedSigs.has(sig)) return false;
+    usedSigs.add(sig);
+    const stats = calcStats(combo, base);
+    selected.push({ combo, group, strategy, ...stats });
+    return true;
+  }
+
+  const nCap = Math.min(3, Math.floor(num * 0.3));
+  const nBal = Math.min(3, Math.floor(num * 0.3));
+
+  // Phase 0: Preferred teacher combos first
+  if (preferredTeachers.size > 0) {
+    const preferredCombos = sorted.filter(combo =>
+      combo.some(c => isTeacherPreferred(c.teacher))
+    );
+    // Sort preferred combos by number of preferred teachers (desc)
+    preferredCombos.sort((a, b) => {
+      const pa = a.filter(c => isTeacherPreferred(c.teacher)).length;
+      const pb = b.filter(c => isTeacherPreferred(c.teacher)).length;
+      if (pa !== pb) return pb - pa;
+      const ra = a.reduce((s, c) => s + c.remaining, 0);
+      const rb = b.reduce((s, c) => s + c.remaining, 0);
+      return rb - ra;
+    });
+
+    for (const combo of preferredCombos) {
+      if (selected.length >= nCap) break;
+      tryAdd(combo, '优选推荐', '优选教师优先');
+    }
+  }
+
+  // Phase 1: Capacity-first (fill remaining slots)
+  for (const combo of sorted) {
+    if (selected.length >= nCap + nBal) break;
+    tryAdd(combo, '容量优先', '余量最多优先');
+  }
+
+  // Phase 2: Time-balanced strategies
+  const strategies = [
+    ['少早八优先', cs => {
+      const tagged = cs.map(c => ({ combo: c, s: calcStats(c, base) }));
+      const no = tagged.filter(x => !x.s.hasMorning).map(x => x.combo);
+      const yes = tagged.filter(x => x.s.hasMorning).map(x => x.combo);
+      return [...no, ...yes];
+    }],
+    ['少晚课优先', cs => {
+      const tagged = cs.map(c => ({ combo: c, s: calcStats(c, base) }));
+      const no = tagged.filter(x => !x.s.hasNight).map(x => x.combo);
+      const yes = tagged.filter(x => x.s.hasNight).map(x => x.combo);
+      return [...no, ...yes];
+    }],
+    ['单日最均衡', cs => {
+      const scored = cs.map(c => {
+        const s = calcStats(c, base);
+        const vs = Object.values(s.dayCounts);
+        const mean = vs.reduce((a,b)=>a+b,0) / (vs.length||1);
+        const variance = vs.reduce((a,v)=>a+(v-mean)**2,0) / (vs.length||1);
+        return { combo: c, score: s.maxDayPeriods * 5 + variance * 2 };
+      }).sort((a,b) => a.score - b.score);
+      return scored.map(x => x.combo);
+    }],
+  ];
+
+  for (const [name, sorter] of strategies) {
+    if (selected.length >= nCap + nBal) break;
+    const ordered = sorter(sorted);
+    for (const combo of ordered) {
+      if (selected.length >= nCap + nBal) break;
+      tryAdd(combo, '时间均衡', name);
+    }
+  }
+
+  // Fill time-balanced if needed
+  if (selected.length < nCap + nBal) {
+    for (const combo of sorted) {
+      if (selected.length >= nCap + nBal) break;
+      tryAdd(combo, '时间均衡', '均衡补充');
+    }
+  }
+
+  // Phase 3: Random exploration
+  const remaining = sorted.filter(c => !usedSigs.has(comboSignature(c)));
+  for (let i = remaining.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+  }
+
+  for (const combo of remaining) {
+    if (selected.length >= num) break;
+    tryAdd(combo, '随机探索', '多样性探索');
+  }
+
+  // Fill if under count
+  if (selected.length < num) {
+    for (const combo of sorted) {
+      if (selected.length >= num) break;
+      tryAdd(combo, '补充方案', '名额补充');
+    }
+  }
+
+  return selected.slice(0, num);
+}
+
+// ============================================================
+// Timetable
+// ============================================================
+function generateSchedule(combo, base) {
+  const all = [...base, ...combo];
+  const schedule = {};
+  for (const c of all) {
+    for (const [day, periods] of Object.entries(c.dayPeriods)) {
+      const bigPeriods = new Set();
+      for (const p of periods) bigPeriods.add(periodToBigPeriod(p));
+
+      for (const bp of bigPeriods) {
+        const bpWeeks = new Set();
+        for (const p of periods) {
+          if (periodToBigPeriod(p) === bp) {
+            const ws = c.timeSlots[`${day},${p}`];
+            if (ws) ws.forEach(w => bpWeeks.add(w));
+          }
+        }
+        const key = `${day},${bp}`;
+        if (!schedule[key]) schedule[key] = [];
+        schedule[key].push({
+          name: c.name, teacher: c.teacher,
+          weeks: formatWeeks(bpWeeks),
+          location: c.location, module: c.module,
+          isPreferred: isTeacherPreferred(c.teacher)
+        });
+      }
+    }
+  }
+  return schedule;
+}
+
+// ============================================================
+// Template Timetable Render — 显示内置生成模板
+// ============================================================
+function renderTemplateTimetable() {
+  // Hide empty state and scheme detail, show template
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('schemeDetail').style.display = 'none';
+
+  // Create or show template timetable container
+  let ttContainer = document.getElementById('templateTimetable');
+  if (!ttContainer) {
+    ttContainer = document.createElement('div');
+    ttContainer.id = 'templateTimetable';
+    document.getElementById('rightPanel').appendChild(ttContainer);
+  }
+  ttContainer.style.display = 'block';
+  ttContainer.innerHTML = '';
+
+  const data = TEMPLATE_TIMETABLE;
+
+  // Title
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'timetable-card fade-in';
+  titleDiv.innerHTML = `
+    <div class="timetable-card-header">📅 生成模板 · 默认课表</div>
+    <div style="overflow-x:auto">
+      <table class="timetable">
+        <thead>
+          <tr>
+            <th>时间段</th>
+            <th>星期一</th>
+            <th>星期二</th>
+            <th>星期三</th>
+            <th>星期四</th>
+            <th>星期五</th>
+            <th>星期六</th>
+            <th>星期日</th>
+          </tr>
+        </thead>
+        <tbody id="templateTbody"></tbody>
+      </table>
+    </div>
+  `;
+  ttContainer.appendChild(titleDiv);
+
+  const tbody = document.getElementById('templateTbody');
+  for (let r = 0; r < data.rows.length; r++) {
+    const tr = document.createElement('tr');
+    for (let c = 0; c < data.rows[r].length; c++) {
+      const td = document.createElement('td');
+      if (c === 0) {
+        // Period label
+        td.className = 'period-label';
+        td.innerHTML = data.rows[r][c].replace(/\n/g, '<br>');
+      } else {
+        const cellContent = data.rows[r][c];
+        if (cellContent) {
+          const lines = cellContent.split('\n');
+          lines.forEach((line, li) => {
+            if (li === 0) {
+              // Course name - parse out the name part
+              const nameMatch = line.match(/^(\S+?)(?:\s+\S+)?$/);
+              const div = document.createElement('div');
+              div.className = 'course-cell';
+              const nameDiv = div.cloneNode();
+              nameDiv.className = 'cell-name';
+              nameDiv.textContent = line.trim();
+              td.appendChild(nameDiv);
+              const detailDiv = div.cloneNode();
+              detailDiv.className = 'cell-teacher';
+              detailDiv.textContent = lines[li + 1] ? lines[li + 1].trim() : '';
+              td.appendChild(detailDiv);
+              const weekDiv = div.cloneNode();
+              weekDiv.className = 'cell-weeks';
+              weekDiv.textContent = lines[li + 2] ? lines[li + 2].trim() : '';
+              td.appendChild(weekDiv);
+              const locDiv = div.cloneNode();
+              locDiv.className = 'cell-location';
+              locDiv.textContent = lines[li + 3] ? lines[li + 3].trim() : '';
+              td.appendChild(locDiv);
+            }
+          });
+        } else {
+          td.className = 'empty';
+          td.textContent = '-';
+        }
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+}
+
+// Call on page load
+// Template timetable no longer shown on load — kept for reference only
+
+// ============================================================
+// UI Rendering
+// ============================================================
+let allSchemes = [], selectedBase = [], allModules = {};
+let schemeModuleOrder = [];
+
+function renderSchemeList() {
+  const list = document.getElementById('schemeList');
+  document.getElementById('schemeCount').textContent = `${allSchemes.length}套`;
+  list.innerHTML = '';
+
+  allSchemes.forEach((scheme, idx) => {
+    const el = document.createElement('div');
+    el.className = 'scheme-item';
+    el.dataset.index = idx;
+
+    let gc = 'group-random';
+    if (scheme.group === '容量优先') gc = 'group-capacity';
+    else if (scheme.group === '时间均衡') gc = 'group-balanced';
+    else if (scheme.group === '优选推荐') gc = 'group-preferred';
+
+    const summary = scheme.combo.map(c => `${c.name}`).join(' · ');
+    const prefStar = scheme.preferredCount > 0 ? `⭐${scheme.preferredCount} ` : '';
+
+    el.innerHTML = `
+      <div class="scheme-item-header">
+        <span class="scheme-id">方案 #${idx + 1}</span>
+        <span class="scheme-group ${gc}">${prefStar}${scheme.group}</span>
+      </div>
+      <div class="scheme-summary-text" title="${summary}">${summary}</div>
+      <div class="scheme-meta">
+        <span>🎯 +${scheme.totalRemaining}</span>
+        <span>📅 ${scheme.daysWithClass}天</span>
+        <span>📚 ${scheme.totalCredits}学分</span>
+        ${scheme.hasMorning ? '<span>🌅早八</span>' : ''}
+        ${scheme.hasNight ? '<span>🌙晚课</span>' : ''}
+      </div>
+    `;
+    el.addEventListener('click', () => showScheme(idx));
+    list.appendChild(el);
+  });
+
+  if (allSchemes.length > 0) showScheme(0);
+}
+
+function showScheme(index) {
+  const scheme = allSchemes[index];
+  if (!scheme) return;
+
+  document.querySelectorAll('.scheme-item').forEach((el, i) => el.classList.toggle('active', i === index));
+
+  document.getElementById('schemeDetail').style.display = 'block';
+  document.getElementById('emptyState').style.display = 'none';
+  const tt = document.getElementById('templateTimetable');
+  if (tt) tt.style.display = 'none';
+
+  const prefLabel = scheme.preferredCount > 0 ? ' ⭐' : '';
+  document.getElementById('schemeTitle').textContent = `📋 方案 #${index + 1} — ${scheme.group}${prefLabel}`;
+  document.getElementById('schemeGroup').textContent = `策略: ${scheme.strategy}${scheme.preferredCount > 0 ? ` · 含${scheme.preferredCount}门优选课` : ''}`;
+
+  // Stats
+  document.getElementById('statsBar').innerHTML = `
+    <span class="stat-item">📚 共计修读学分: <span class="stat-val">${scheme.totalCredits}学分</span></span>
+    <span class="stat-item">🎯 剩余名额: <span class="stat-val">+${scheme.totalRemaining}</span></span>
+    <span class="stat-item">📅 上课天数: <span class="stat-val">${scheme.daysWithClass}天</span></span>
+    <span class="stat-item">📊 单日最高: <span class="stat-val">${scheme.maxDayPeriods}节</span></span>
+    <span class="stat-item">🌅 早八: <span class="stat-val">${scheme.hasMorning ? '有' : '无'}</span></span>
+    <span class="stat-item">🌙 晚课: <span class="stat-val">${scheme.hasNight ? '有' : '无'}</span></span>
+    ${scheme.preferredCount > 0 ? `<span class="stat-item">⭐ 优选教师: <span class="stat-val">${scheme.preferredCount}门</span></span>` : ''}
+  `;
+
+  // Course table
+  const tbody = document.getElementById('courseTableBody');
+  const ordered = [
+    ...selectedBase.map(c => ({ ...c, isBase: true })),
+    ...scheme.combo.map(c => ({ ...c, isBase: false }))
+  ];
+
+  tbody.innerHTML = ordered.map(c => {
+    const rc = c.remaining >= 30 ? 'remaining-high' : c.remaining >= 10 ? 'remaining-mid' : 'remaining-low';
+    const timeDisplay = Object.entries(c.dayPeriods)
+      .map(([day, periods]) => {
+        const dayCn = Object.entries(DAY_MAP).find(([,v]) => v === day)?.[0] || day;
+        return `${dayCn}第${[...periods].sort((a,b)=>a-b).join(',')}节`;
+      }).join('; ');
+    const mod = c.isBase ? '已选' : c.module;
+    const isFav = isTeacherPreferred(c.teacher);
+    return `<tr>
+      <td><span class="module-tag module-${mod}">${mod}</span></td>
+      <td><strong>${c.name}</strong>${c.isBase ? ' <span style="color:var(--text-muted);font-size:10px;">[固定]</span>' : ''}</td>
+      <td style="font-weight:600;color:var(--text-secondary);font-size:12px;">${c.credits || '-'}</td>
+      <td>${c.teacher || '-'}</td>
+      <td style="font-size:11px;">${timeDisplay}</td>
+      <td style="font-size:11px;">${c.location || '-'}</td>
+      <td><span class="remaining-badge ${rc}">${c.remaining > 0 ? '+' : ''}${c.remaining}</span></td>
+      <td>${isFav ? '<span class="fav-icon fav-active">⭐</span>' : ''}</td>
+    </tr>`;
+  }).join('');
+
+  // Timetable
+  renderTimetable(scheme);
+}
+
+function renderTimetable(scheme) {
+  const schedule = generateSchedule(scheme.combo, selectedBase);
+  const tbody = document.getElementById('timetableBody');
+  tbody.innerHTML = '';
+
+  const PERIOD_LABELS = [
+    '第一大节<br><span class="period-sub">(01,02小节)</span><br><span class="period-time">08:00-09:50</span>',
+    '第二大节<br><span class="period-sub">(03,04小节)</span><br><span class="period-time">10:10-12:00</span>',
+    '第三大节<br><span class="period-sub">(05,06小节)</span><br><span class="period-time">14:00-15:50</span>',
+    '第四大节<br><span class="period-sub">(07,08小节)</span><br><span class="period-time">16:10-18:00</span>',
+    '第五大节<br><span class="period-sub">(09,10小节)</span><br><span class="period-time">19:00-20:50</span>',
+    '第六大节<br><span class="period-sub">(11,12小节)</span><br><span class="period-time">21:00-22:30</span>'
+  ];
+
+  for (let bp = 1; bp <= 6; bp++) {
+    const tr = document.createElement('tr');
+    const lt = document.createElement('td');
+    lt.className = 'period-label';
+    lt.innerHTML = PERIOD_LABELS[bp - 1];
+    tr.appendChild(lt);
+
+    for (let di = 0; di < 7; di++) {
+      const td = document.createElement('td');
+      const day = DAY_EN[di];
+      const entries = schedule[`${day},${bp}`];
+      if (entries && entries.length > 0) {
+        entries.forEach(e => {
+          const div = document.createElement('div');
+          const typeClass = e.isPreferred ? 'type-优选' : (e.module === '已选' ? 'type-base' : `type-${e.module}`);
+          div.className = `course-cell ${typeClass}`;
+          div.innerHTML = `
+            <div class="cell-name">${e.name}</div>
+            <div class="cell-teacher">${e.teacher}</div>
+            <div class="cell-weeks">${e.weeks}([周])</div>
+            <div class="cell-location">${e.location}</div>
+          `;
+          td.appendChild(div);
+        });
+      } else {
+        td.className = 'empty';
+        td.textContent = '-';
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+}
+
+// ============================================================
+// File Upload
+// ============================================================
+document.getElementById('dropZone').addEventListener('click', () => document.getElementById('fileInput').click());
+document.getElementById('dropZone').addEventListener('dragover', e => { e.preventDefault(); document.getElementById('dropZone').classList.add('dragover'); });
+document.getElementById('dropZone').addEventListener('dragleave', () => document.getElementById('dropZone').classList.remove('dragover'));
+document.getElementById('dropZone').addEventListener('drop', e => { e.preventDefault(); document.getElementById('dropZone').classList.remove('dragover'); if (e.dataTransfer.files.length > 0) processFile(e.dataTransfer.files[0]); });
+document.getElementById('fileInput').addEventListener('change', e => { if (e.target.files.length > 0) processFile(e.target.files[0]); });
+
+function processFile(file) {
+  if (!file.name.match(/\.xlsx?$/i)) {
+    showStatus('error', '❌ 请上传 .xlsx 或 .xls 格式的文件');
+    return;
+  }
+  showStatus('info', '⏳ 正在解析文件...');
+  document.getElementById('loadingSchemes').classList.add('show');
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const parsed = parseExcel(data);
+
+      if (Object.keys(parsed.modules).length === 0) {
+        showStatus('error', '❌ 未找到有效课程数据，请检查列名（需含：课程名称、教师姓名、上课时间、上课周次、限选人数、班级人数）');
+        console.warn('⚠️ Excel解析失败：未找到有效课程数据。检查的列名:', ['课程名称','教师姓名','上课时间','上课周次','限选人数','班级人数']);
+        document.getElementById('loadingSchemes').classList.remove('show');
+        return;
+      }
+
+      selectedBase = parsed.selectedBase;
+      allModules = parsed.modules;
+      schemeModuleOrder = parsed.moduleOrder;
+
+      // Reset preferred teachers
+      preferredTeachers.clear();
+
+      // Show teacher panel
+      renderTeacherPanel(allModules);
+
+      // Generate schemes
+      const schemes = generateSchemes(allModules, selectedBase, 20);
+      if (schemes.length === 0) {
+        showStatus('error', '❌ 无法生成合法组合：所有候选课程都与已选课程冲突或容量不足');
+        document.getElementById('loadingSchemes').classList.remove('show');
+        return;
+      }
+
+      allSchemes = schemes;
+      renderSchemeList();
+
+      // Hide template timetable
+      const tt = document.getElementById('templateTimetable');
+      if (tt) tt.style.display = 'none';
+
+      const info = Object.entries(allModules).map(([k, v]) => `${k}:${v.length}门`).join(' · ');
+      showStatus('success', `✅ 解析成功！${selectedBase.length}门已选 · ${info}<br>▶ 共生成 ${schemes.length} 套方案，点击左侧查看`);
+
+      document.getElementById('loadingSchemes').classList.remove('show');
+    } catch (err) {
+      console.error(err);
+      showStatus('error', `❌ 解析失败: ${err.message}`);
+      document.getElementById('loadingSchemes').classList.remove('show');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function regenerateSchemes() {
+  if (Object.keys(allModules).length === 0) return;
+
+  document.getElementById('loadingSchemes').classList.add('show');
+
+  // Brief delay for UI update
+  setTimeout(() => {
+    const schemes = generateSchemes(allModules, selectedBase, 20);
+    if (schemes.length === 0) {
+      showStatus('error', '❌ 无法生成合法组合');
+      document.getElementById('loadingSchemes').classList.remove('show');
+      return;
+    }
+
+    allSchemes = schemes;
+    renderSchemeList();
+    document.getElementById('loadingSchemes').classList.remove('show');
+
+    const prefInfo = preferredTeachers.size > 0
+      ? `已标记 ${preferredTeachers.size} 位优选教师`
+      : '未标记优选教师';
+    showStatus('success', `✅ 已重新生成 ${schemes.length} 套方案 · ${prefInfo}`);
+  }, 200);
+}
+
+function showStatus(type, msg) {
+  const el = document.getElementById('uploadStatus');
+  el.className = `upload-status ${type}`;
+  el.innerHTML = msg;
+}
+
+// ============================================================
+// Export to Excel
+// ============================================================
+console.log('📚 智能排课系统已加载 (v3.0)');
+console.log('💡 上传Excel后可标记优选教师，系统将优先推荐其课程');
+
+// ============================================================
+// Help Modal
+// ============================================================
+function toggleHelp() {
+  const modal = document.getElementById('helpModal');
+  const isOpen = modal.classList.contains('show');
+  if (isOpen) {
+    modal.classList.remove('show');
+    document.body.style.overflow = '';
+  } else {
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('helpModal');
+  if (modal.classList.contains('show') && e.target === modal) {
+    toggleHelp();
+  }
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('helpModal');
+    if (modal.classList.contains('show')) toggleHelp();
+  }
+});
+</script>
+</body>
+</html>
